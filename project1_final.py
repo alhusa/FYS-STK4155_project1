@@ -222,14 +222,7 @@ testn = sampn*sampn - trainn
 
 
 #get random indices for test data
-# randi = random.sample(range(0,sampn*sampn),testn)
-# f = open("testdata.txt", "w")
-# for i in range(0,len(randi)):
-#     f.write("%d "%randi[i])
-
-#use indices from file
-randi = np.loadtxt('testdata.txt',dtype='int',)
-
+randi = random.sample(range(0,sampn*sampn),testn)
 
 #array to store test data
 xte = np.zeros(testn)
