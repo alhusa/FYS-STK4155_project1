@@ -94,7 +94,7 @@ def Xmat (x,y,pol):
 #finds the variance of the beta parameters and calculate confidence interval
 #also creates variance-covariance matrix
 #needs flattend z and zpred array
-def BetaConf (z,zpred,n,pred,X,beta):
+def BetaConf (z,zpred,n,pred,X,beta,conint):
     sigS = 0 #sigma squared of beta
 
     #sum of error
@@ -114,7 +114,7 @@ def BetaConf (z,zpred,n,pred,X,beta):
     zscore = 1.96
     #zscore = 1.645
     #array to store confidence intervals
-    conint = np.c_[np.zeros(X.shape[1]), np.zeros(X.shape[1])]
+    #conint = np.c_[np.zeros(X.shape[1]), np.zeros(X.shape[1])]
 
     #calculate the confidence interval
     for i in range(0,X.shape[1]):
@@ -154,9 +154,9 @@ def VBE(zpred,z):
 
 # Make data.
 sampn = 100 #number of samples
-lamb = 1 #value of lambda
+lamb = 0.001 #value of lambda
 trainp = 0.7 #Number of training samples given as %
-polDeg = 3 #order of polynomial
+polDeg = 5 #order of polynomial
 bootrun = 1000 #times to run the bootrstap
 method = "OLS"
 nlevel = 0.1
@@ -181,11 +181,13 @@ y = np.linspace(0,1,sampn)
 xx, yy = np.meshgrid(x,y)
 
 
+#the different z values must be commeted inn and out
+#to change between real and simulated data
 #z calculated using the franke function
-#z = FrankeFunction(xx, yy) + N0
+z = FrankeFunction(xx, yy) + N0
 
-z = imread('SRTM_data_Norway_1.tif')
-z = z[0:sampn, 0:sampn]
+#z = imread('SRTM_data_Norway_1.tif')
+#z = z[0:sampn, 0:sampn]
 
 #LinearRegression
 #Get all datapoints in one 1D array
@@ -216,6 +218,9 @@ else: matshape = 21
 minMSE = float("inf")
 bestbeta = np.zeros(matshape)
 bestconint = np.c_[np.zeros(matshape), np.zeros(matshape)]
+conint = np.c_[np.zeros(matshape), np.zeros(matshape)]
+
+beta = np.zeros((bootrun,matshape))
 
 #number of test data
 testn = sampn*sampn - trainn
@@ -281,15 +286,15 @@ for j in range(0,bootrun):
     #ridge
     if method == "ridge":
         lam = np.identity(X.shape[1]) * lamb
-        beta, zpred, zpredtest, zzpred = ridge(X,Xte,zt,lam,Xn,sampn)
+        beta[j,:], zpred, zpredtest, zzpred = ridge(X,Xte,zt,lam,Xn,sampn)
 
     #lasso
     elif method == "lasso":
-        beta, zpred, zpredtest,zzpred = Lasso(X,Xte,zt,lamb,Xn,sampn)
+        beta[j,:], zpred, zpredtest,zzpred = Lasso(X,Xte,zt,lamb,Xn,sampn)
 
     #OLS
     else:
-        beta, zpred, zpredtest, zzpred = OLS(X,Xte,zt,Xn,sampn)
+        beta[j,:], zpred, zpredtest, zzpred = OLS(X,Xte,zt,Xn,sampn)
 
     #calculate MSE and R2
     #needs flattend z and zpred array
@@ -302,18 +307,20 @@ for j in range(0,bootrun):
     #function to calualte variance bias and error term
     varz[j], biasz[j], zeps[j] = VBE(zpredtest,zte)
 
-    #gets the variance and confidence interval for the beta
-    sigS, conint, varb = BetaConf(zt,zpred,trainn,matshape-1,X,beta)
+    #gets the analytical confidence interval if the OLS
+    #method is used
+    if method == "OLS":
+        #gets the variance and confidence interval for the beta
+        sigS, conint, varb = BetaConf(zt,zpred,trainn,matshape-1,X,beta[j,:],conint)
 
     #stores the data from the model with the lowest MSE
     if(zMSEte[j] < minMSE):
         minMSE = zMSEte[j]
-        bestbeta = beta
+        bestbeta = beta[j,:]
         bestconint = conint
 
     #gets the times used to make and use model
     timeend[j] = tm.time() - timestart
-
 
 
 #emperical confidence intervals for the bias and variance
@@ -334,6 +341,14 @@ varzl = np.percentile(varz, pu)
 varzu = np.percentile(varz, pl)
 
 
+#finding the emperical confidence interval if the method is not OLS
+betasort = np.zeros(bootrun)
+
+if method != "OLS":
+    for i in range(0,matshape):
+        betasort = np.sort(beta[:,i])
+        bestconint[i][0] = np.percentile(betasort, pu)
+        bestconint[i][1] = np.percentile(betasort, pl)
 
 #prints releevant data
 print("Polynomial of %d degree using the %s method and lambda of %f" %(polDeg, method, lamb))
@@ -343,7 +358,7 @@ print("Bias average    : %f. 95 conf. interval: [%f,%f]" %(np.mean(biasz), biasz
 print("Variance average: %f. 95 conf. interval: [%f,%f]" %(np.mean(varz), varzl,varzu))
 print("Time used by the program %.3f" %np.mean(timeend))
 # for i in range(0,matshape):
-#     print("%.3f & [%.3f,%.3f]\\\\" %(bestbeta[i],bestconint[i][0], bestconint[i][1]))
+#      print("%.3f & [%.3f,%.3f]\\\\" %(bestbeta[i],bestconint[i][0], bestconint[i][1]))
 
 
 
