@@ -148,8 +148,9 @@ def VBE(zpred,z):
     biasz = zb / n
     #error calculation
     zeps = (2*zer) / n
-
-    return varz, biasz, zeps
+    bias = np.mean( (z - np.mean(zpred, axis=0, keepdims=True))**2 )
+    variance = np.mean( np.var(zpred, axis=0, keepdims=True))
+    return varz, biasz, zeps, bias, variance
 
 
 # Make data.
@@ -184,10 +185,10 @@ xx, yy = np.meshgrid(x,y)
 #the different z values must be commeted inn and out
 #to change between real and simulated data
 #z calculated using the franke function
-z = FrankeFunction(xx, yy) + N0
+#z = FrankeFunction(xx, yy) + N0
 
-#z = imread('SRTM_data_Norway_1.tif')
-#z = z[0:sampn, 0:sampn]
+z = imread('SRTM_data_Norway_1.tif')
+z = z[0:sampn, 0:sampn]
 
 #LinearRegression
 #Get all datapoints in one 1D array
@@ -305,8 +306,10 @@ for j in range(0,bootrun):
     zMSEte[j], zRte[j] = MSER2(zte,zpredtest,len(zte))
 
     #function to calualte variance bias and error term
-    varz[j], biasz[j], zeps[j] = VBE(zpredtest,zte)
-
+    varz[j], biasz[j], zeps[j], bb, vv = VBE(zpredtest,zte)
+    print("MSE: %.2f R2: %.2f" %(zMSEte[j],zRte[j]))
+    print("Orginal bias: %.2f new bias: %.2f" %(biasz[j],bb))
+    print("Orginal var: %.2f new var: %.2f" %(varz[j],vv))
     #gets the analytical confidence interval if the OLS
     #method is used
     if method == "OLS":
